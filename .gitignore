@@ -13,3 +13,8 @@ dashboard/.next/
 output/*
 !output/.gitkeep
 data/user_profile.generated.yaml
+celerybeat-schedule.db
+celerybeat-schedule.db-journal
+# Personal docs (keep locally; do not commit)
+resume/*.pdf
+.local_private/
