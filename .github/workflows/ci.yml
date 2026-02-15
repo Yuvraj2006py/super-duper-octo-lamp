@@ -39,6 +39,8 @@ jobs:
       SECRET_KEY: ci-secret
       OUTPUT_DIR: ./output
       TEMPLATE_DIR: app/templates
+      EMBEDDING_PROVIDER: mock
+      DATA_DIR: .
 
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +54,34 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            if python -c "
+import os, sys
+url = os.environ.get('DATABASE_URL', '')
+if not url or '@' not in url or 'localhost' not in url:
+  print('DATABASE_URL missing or invalid.')
+  sys.exit(1)
+if 'postgres:@' in url:
+  print('POSTGRES_PASSWORD secret is empty. In repo Settings -> Secrets and variables -> Actions, add secret POSTGRES_PASSWORD with value: postgres')
+  sys.exit(1)
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
+try:
+  e = create_engine(url)
+  with e.connect() as c: c.execute(text('SELECT 1'))
+  print('Postgres ready')
+  sys.exit(0)
+except OperationalError as err:
+  print('Waiting...', err)
+  sys.exit(2)
+"; then exit 0; fi
+            sleep 2
+          done
+          echo "Postgres did not become ready"
+          exit 1
 
       - name: Lint syntax
         run: python -m compileall app scripts tests
