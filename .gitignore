@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.cache/
+.env
+.env.local
+.env.*.local
+!.env.example
+secrets/
+node_modules/
+dashboard/.next/
+output/*
+!output/.gitkeep
+data/user_profile.generated.yaml

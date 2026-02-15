@@ -1,0 +1,99 @@
+personal_info:
+  name: Yuvraj Sharma
+  # Replace with your email (do not commit real email if pushing to a public repo)
+  email: your_email@example.com
+  links:
+    # Replace these labels with real URLs any time.
+    - https://portfoliowebsite-nu-opal.vercel.app
+    - https://github.com/Yuvraj2006py
+    - https://www.linkedin.com/in/yuvrajsharm
+summary: Computer Science student seeking internship opportunities in software, data, and machine learning.
+# Resume parser will populate these sections from resume/*.pdf at seed time.
+education: []
+experience: []
+projects: []
+skills: []
+achievements: []
+allowed_claims: []
+
+# Optional: add non-resume experience here later and it will be used by retrieval/writing.
+external_experiences:
+  - name: Western Varsity Basketball Analytics
+    location: London, ON
+    title: Data Engineer
+    start_date: 2025-06
+    end_date: Present
+    highlights: Designed and implemented end-to-end Python data pipelines (Pandas, NumPy, SQLAlchemy) for ingesting, cleaning, and processing 10,000+ player possessions and seasonal OUA stats; developed robust ETL workflows with batch processing, transforming raw game logs into structured datasets stored in PostgreSQL for downstream analysis; engineered advanced features capturing player efficiency, archetypes, and on-court synergies to enable lineup optimization and targeted recruitment.
+    bullets:
+      - Designed and implemented end-to-end Python data pipelines (Pandas, NumPy, SQLAlchemy) for ingesting, cleaning, and processing 10,000+ player possessions and seasonal OUA stats.
+      - Developed robust ETL workflows with batch processing, transforming raw game logs into structured datasets stored in PostgreSQL for downstream analysis.
+      - Engineered advanced features capturing player efficiency, archetypes, and on-court synergies to enable lineup optimization and targeted recruitment.
+  - name: Western Quantitative
+    location: London, ON
+    title: Co-President & Quantitative Developer
+    start_date: 2025-09
+    end_date: Present
+    highlights: Led a 20-member quant research division, developed models for high-frequency trading, algorithmic strategy design, and market microstructure research, overseeing 5+ active projects per semester; co-developed CryptoCop, a real-time crypto arbitrage engine that scanned 10,000+ price pairs daily to identify cross-exchange inefficiencies and optimize execution across 5+ major exchanges using Python, FastAPI, and PostgreSQL; built a sports and prediction-market arbitrage platform analyzing 50,000+ odds updates per day from Kalshi, Polymarket, and sportsbook APIs to detect pricing inefficiencies and alpha opportunities.
+    bullets:
+      - Led a 20-member quant research division, developed models for high-frequency trading, algorithmic strategy design, and market microstructure research, overseeing 5+ active projects per semester.
+      - Co-developed CryptoCop, a real-time crypto arbitrage engine that scanned 10,000+ price pairs daily to identify cross-exchange inefficiencies and optimize execution across 5+ major exchanges using Python, FastAPI, and PostgreSQL.
+      - Built a sports and prediction-market arbitrage platform analyzing 50,000+ odds updates per day from Kalshi, Polymarket, and sportsbook APIs to detect pricing inefficiencies and alpha opportunities.
+
+# Fill these for application packet handoff (application_payload.json includes this block).
+application_assets:
+  portfolio_url: "https://portfoliowebsite-nu-opal.vercel.app"
+  github_url: "https://github.com/Yuvraj2006py"
+  linkedin_url: "https://www.linkedin.com/in/yuvrajsharm"
+  website_url: ""
+  transcript_url: ""
+  transcript_path: "resume/2026 Transcript.pdf"
+  additional_links: []
+
+# Internship targeting policy.
+internship_preferences:
+  target_internships_only: true
+  # Current active season.
+  active_term: summer
+  # Keep placeholders for upcoming terms.
+  target_terms:
+    - summer
+    - fall
+    - winter
+  # All tech roles, with stronger relevance for data/ML.
+  all_tech_roles: true
+  target_role_families:
+    - software
+    - backend
+    - data
+    - ml
+  preferred_locations:
+    - remote
+    - us
+    - canada
+  work_authorization:
+    us_authorized: true
+    canada_authorized: true
+    requires_sponsorship_us: false
+    requires_sponsorship_canada: false
+  # Anti-spam cap across non-closed applications.
+  max_applications_per_company: 4
+
+preferred_seniority:
+  - intern
+  - co-op
+  - new grad
+preferred_locations:
+  - remote
+  - us
+  - canada
+
+general_meta:
+  university_year: "2nd year Computer Science"
+  gpa: "3.6/4.0"
+  availability_terms:
+    - summer
+  work_authorization:
+    canada_authorized: true
+    us_authorized: true
+    requires_sponsorship_canada: false
+    requires_sponsorship_us: false

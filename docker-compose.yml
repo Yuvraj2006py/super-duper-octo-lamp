@@ -1,0 +1,105 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: job_assistant_postgres
+    environment:
+      POSTGRES_DB: job_assistant
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: job_assistant_redis
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: job_assistant_api
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/job_assistant
+      REDIS_URL: redis://redis:6379/0
+      OUTPUT_DIR: /output
+      DATA_DIR: /workspace/data
+      TEMPLATE_DIR: /workspace/app/templates
+    volumes:
+      - ./:/workspace
+      - ./output:/output
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: job_assistant_worker
+    command: celery -A app.workers.celery_app.celery worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/job_assistant
+      REDIS_URL: redis://redis:6379/0
+      OUTPUT_DIR: /output
+      TEMPLATE_DIR: /workspace/app/templates
+    volumes:
+      - ./:/workspace
+      - ./output:/output
+    depends_on:
+      - postgres
+      - redis
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: job_assistant_beat
+    command: celery -A app.workers.celery_app.celery beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/job_assistant
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./:/workspace
+    depends_on:
+      - postgres
+      - redis
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: job_assistant_dashboard
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:8000
+    volumes:
+      - ./dashboard:/workspace/dashboard
+      - /workspace/dashboard/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pg_data:

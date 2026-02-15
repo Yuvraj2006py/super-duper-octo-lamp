@@ -1,0 +1,28 @@
+Plan Outline
+
+Form fetcher & catalog
+
+Create form_fetcher.py to launch Playwright with workday_state.json, navigate to the provided job URL, wait for DOM, and extract input/select/textarea elements plus any JSON script blocks into normalized field metadata (application_form_fields with name, normalized prompt, type, required flag, platform tag).
+Add application_form_fields table (id, job_id, field_key, label, type, required, platform, metadata) with indexes on job_id and platform.
+Track platform metadata on jobs (new column or JSON) so the auto-fill executor knows which adapter to use.
+General meta mapping
+
+Keep the general_meta block in user_profile.yaml.
+Extend writing.py helper to map prompts containing keywords (“year”, “GPA”, “availability”, “work authorization”) to the corresponding general meta values before resorting to LLM.
+Ensure generate_drafts returns the normalized question_answer_pairs (with the prompt and answer).
+Auto-fill executor & submission
+
+Add LangGraph node auto_fill_executor after approval_gate.
+Node loads application_form_fields, matches them to either general/meta answers or the generated pairs, builds the payload.
+Calls form_submission_service.py, which uses the same Playwright storage state (plus optional additional states if needed) to fill the form, supports dry-run validation, detects CAPTCHA/blocks, retries up to a limit, and submits.
+Submission attempts logged (auto_fill_attempt, submission_result, submission_blocked) with payload/response stored in new submission_packet table linked to application_id.
+Jobs/applications gain new SUBMITTED status; automatic success moves status to it; blocked attempts keep status READY_FOR_REVIEW while leaving the packet ready.
+Audit/UI/Artifacts
+
+Log form_fetched, fields_cataloged.
+Packet builder writes submission_packet snapshot even when auto-submit happens.
+Dashboard job detail shows field catalog + answer source, submission history, and general metadata panel; includes a “Retry submission” button.
+Docs & Tests
+
+Update docs (workflows/security/assumptions) with new flow, session handling, and CAPTCHA policy.
+Tests: unit coverage for form fetcher extraction, deterministic answers, submission retry behavior; integration mocks for successful submission and CAPTCHA block; update make run_demo to run against the mock form and verify pipeline reaches SUBMITTED

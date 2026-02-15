@@ -1,0 +1,96 @@
+[
+  {
+    "external_id": "job-001",
+    "url": "https://jobs.example.com/1",
+    "title": "Software Engineering Intern (Summer)",
+    "company": "Acme Analytics",
+    "location": "Remote - US",
+    "seniority": "intern",
+    "posted_at": "2026-02-10T09:00:00Z",
+    "requirements": [
+      "Build Python microservices",
+      "Work with FastAPI and PostgreSQL",
+      "Implement audit logging and workflow controls"
+    ],
+    "must_have": [
+      "FastAPI",
+      "PostgreSQL"
+    ],
+    "raw_text": "Title: Software Engineering Intern (Summer)\nCompany: Acme Analytics\nLocation: Remote - US\nRequirements:\n- Build Python microservices\n- Work with FastAPI and PostgreSQL\n- Implement audit logging and workflow controls\n"
+  },
+  {
+    "external_id": "job-002",
+    "url": "https://jobs.example.com/2",
+    "title": "Data Engineering Intern",
+    "company": "BlueRocket",
+    "location": "Toronto, ON, Canada",
+    "seniority": "intern",
+    "posted_at": "2026-02-08T14:00:00Z",
+    "requirements": [
+      "Build ETL pipelines and data validation checks",
+      "Use SQL, Python, and cloud data tooling",
+      "Support analytics data quality"
+    ],
+    "must_have": [
+      "SQL",
+      "Python"
+    ],
+    "raw_text": "Position: Data Engineering Intern\nCompany: BlueRocket\nLocation: Toronto, ON, Canada\n- Build ETL pipelines and data validation checks\n- Use SQL, Python, and cloud data tooling\n- Support analytics data quality\n"
+  },
+  {
+    "external_id": "job-003",
+    "url": "https://jobs.example.com/3",
+    "title": "Machine Learning Intern",
+    "company": "Nimbus Health",
+    "location": "Remote",
+    "seniority": "intern",
+    "posted_at": "2026-02-11T17:00:00Z",
+    "requirements": [
+      "Build model training and evaluation scripts",
+      "Work with Python and scikit-learn",
+      "Communicate findings to product partners"
+    ],
+    "must_have": [
+      "Python",
+      "machine learning"
+    ],
+    "raw_text": "Title: Machine Learning Intern\nCompany: Nimbus Health\nLocation: Remote\n- Build model training and evaluation scripts\n- Work with Python and scikit-learn\n- Communicate findings to product partners\n"
+  },
+  {
+    "external_id": "job-004",
+    "url": "https://jobs.example.com/4",
+    "title": "Backend Intern",
+    "company": "Vertex Loop",
+    "location": "Vancouver, BC, Canada",
+    "seniority": "intern",
+    "posted_at": "2026-02-06T10:00:00Z",
+    "requirements": [
+      "Build ingestion pipelines",
+      "Operate PostgreSQL and Redis",
+      "Automate quality checks"
+    ],
+    "must_have": [
+      "PostgreSQL",
+      "Redis"
+    ],
+    "raw_text": "Position: Backend Intern\nCompany: Vertex Loop\nLocation: Vancouver, BC, Canada\n- Build ingestion pipelines\n- Operate PostgreSQL and Redis\n- Automate quality checks\n"
+  },
+  {
+    "external_id": "job-005",
+    "url": "https://jobs.example.com/5",
+    "title": "Software Developer Intern (Fall Placeholder)",
+    "company": "Orbit Commerce",
+    "location": "Remote - Canada/US",
+    "seniority": "intern",
+    "posted_at": "2026-02-05T12:00:00Z",
+    "requirements": [
+      "Develop backend services in Python",
+      "Collaborate with product and design",
+      "Maintain API documentation"
+    ],
+    "must_have": [
+      "Python"
+    ],
+    "raw_text": "Title: Software Developer Intern (Fall Placeholder)\nCompany: Orbit Commerce\nLocation: Remote - Canada/US\n- Develop backend services in Python\n- Collaborate with product and design\n- Maintain API documentation\n"
+  }
+]
