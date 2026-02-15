@@ -16,7 +16,8 @@ jobs:
         env:
           POSTGRES_DB: job_assistant
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          # CI database only; do not use production secrets here.
+          POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
         options: >-
@@ -36,7 +37,7 @@ jobs:
 
     env:
       PYTHONPATH: .
-      DATABASE_URL: postgresql+psycopg://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/job_assistant
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/job_assistant
       REDIS_URL: redis://localhost:6379/0
       LOCAL_API_KEY: change-me
       SECRET_KEY: ci-secret
@@ -66,9 +67,6 @@ import os, sys
 url = os.environ.get('DATABASE_URL', '')
 if not url or '@' not in url or 'localhost' not in url:
   print('DATABASE_URL missing or invalid.')
-  sys.exit(1)
-if 'postgres:@' in url:
-  print('POSTGRES_PASSWORD secret is empty. In repo Settings -> Secrets and variables -> Actions, add secret POSTGRES_PASSWORD with value: postgres')
   sys.exit(1)
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
