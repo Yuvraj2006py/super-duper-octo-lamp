@@ -384,6 +384,36 @@ def _list_visible_button_text(surface, *, limit: int = 30) -> list[str]:
     return out
 
 
+def _list_visible_link_text(surface, *, limit: int = 30) -> list[str]:
+    out: list[str] = []
+    try:
+        nodes = surface.locator("a, [role='link']")
+        count = nodes.count()
+    except Exception:
+        return out
+    for idx in range(min(count, limit)):
+        node = nodes.nth(idx)
+        try:
+            if not node.is_visible():
+                continue
+        except Exception:
+            continue
+        text = ""
+        try:
+            text = (node.inner_text(timeout=300) or "").strip()
+        except Exception:
+            text = ""
+        href = ""
+        try:
+            href = (node.get_attribute("href") or "").strip()
+        except Exception:
+            href = ""
+        blob = re.sub(r"\s+", " ", f"{text} {href}".strip())
+        if blob and blob not in out:
+            out.append(blob[:180])
+    return out
+
+
 def _extract_dom_fields(page) -> list[dict[str, Any]]:
     try:
         data = page.evaluate(
@@ -398,30 +428,62 @@ def _extract_dom_fields(page) -> list[dict[str, Any]]:
               };
 
               const labelForId = new Map();
-              document.querySelectorAll('label[for]').forEach((label) => {
-                const id = label.getAttribute('for');
-                if (id) labelForId.set(id, (label.textContent || '').trim());
-              });
+              const buildLabelIndex = (root) => {
+                try {
+                  root.querySelectorAll && root.querySelectorAll('label[for]').forEach((label) => {
+                    const id = label.getAttribute('for');
+                    if (id) labelForId.set(id, (label.textContent || '').trim());
+                  });
+                } catch (e) {}
+              };
 
               const fields = [];
-              const nodes = document.querySelectorAll(
-                'input, select, textarea, [role="textbox"], [role="combobox"], [role="checkbox"], [role="radio"], [contenteditable="true"]'
-              );
+              const selector = 'input, select, textarea, [role="textbox"], [role="combobox"], [role="checkbox"], [role="radio"], [contenteditable="true"]';
               let n = 0;
-              nodes.forEach((el) => {
-                if (!isVisible(el)) return;
+              const seen = new WeakSet();
+
+              const textForId = (id) => {
+                try {
+                  const el = document.getElementById(id);
+                  return el ? ((el.textContent || '').trim()) : '';
+                } catch (e) { return ''; }
+              };
+
+              const labelFor = (el) => {
                 const tag = (el.tagName || '').toLowerCase();
-                const explicitType = tag === 'input' ? ((el.getAttribute('type') || 'text').toLowerCase()) : tag;
-                const role = el.getAttribute('role') || '';
-                const inputType = role || explicitType;
                 const id = el.getAttribute('id') || '';
                 const name = el.getAttribute('name') || '';
                 const placeholder = el.getAttribute('placeholder') || '';
                 const ariaLabel = el.getAttribute('aria-label') || '';
-                const ownLabel = el.closest('label') ? ((el.closest('label').textContent || '').trim()) : '';
+                const ariaLabelledBy = el.getAttribute('aria-labelledby') || '';
+                const ownLabel = el.closest && el.closest('label') ? ((el.closest('label').textContent || '').trim()) : '';
                 const mappedLabel = id && labelForId.has(id) ? labelForId.get(id) : '';
-                const label = ownLabel || mappedLabel || ariaLabel || placeholder || name || id || '';
+                let labelled = '';
+                if (ariaLabelledBy) {
+                  labelled = ariaLabelledBy.split(/\\s+/).map(textForId).filter(Boolean).join(' ').trim();
+                }
+                return {
+                  tag,
+                  id,
+                  name,
+                  placeholder,
+                  ariaLabel,
+                  ariaLabelledBy,
+                  label: (ownLabel || mappedLabel || labelled || ariaLabel || placeholder || name || id || '').trim()
+                };
+              };
+
+              const addField = (el) => {
+                if (!el || seen.has(el)) return;
+                seen.add(el);
+                if (!isVisible(el)) return;
+
+                const role = el.getAttribute('role') || '';
+                const { tag, id, name, placeholder, ariaLabel, ariaLabelledBy, label } = labelFor(el);
                 if (!label) return;
+
+                const explicitType = tag === 'input' ? ((el.getAttribute('type') || 'text').toLowerCase()) : tag;
+                const inputType = role || explicitType;
 
                 const options = [];
                 if (tag === 'select') {
@@ -444,11 +506,37 @@ def _extract_dom_fields(page) -> list[dict[str, Any]]:
                     name,
                     placeholder,
                     aria_label: ariaLabel,
+                    aria_labelledby: ariaLabelledBy,
                     options,
                     input_type: inputType,
                   }
                 });
-              });
+              };
+
+              const scanRoot = (root) => {
+                buildLabelIndex(root);
+                let nodes = [];
+                try {
+                  nodes = root.querySelectorAll ? Array.from(root.querySelectorAll(selector)) : [];
+                } catch (e) { nodes = []; }
+                nodes.forEach(addField);
+
+                // Traverse for shadow roots (open only).
+                try {
+                  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+                  let count = 0;
+                  while (walker.nextNode()) {
+                    const el = walker.currentNode;
+                    count += 1;
+                    if (count > 6000) break;
+                    if (el && el.shadowRoot) {
+                      scanRoot(el.shadowRoot);
+                    }
+                  }
+                } catch (e) {}
+              };
+
+              scanRoot(document);
 
               return fields;
             }
@@ -675,9 +763,27 @@ def submit_with_playwright_workday(
         except Exception:
             pass
         try:
+            link = page.locator("a[data-automation-id*='signIn'], a[href*='signin'], a[href*='login']")
+            if link.count() > 0 and link.first.is_visible():
+                link.first.click(timeout=4000)
+                page.wait_for_timeout(max(wait_ms, 1500))
+                return True
+        except Exception:
+            pass
+        try:
             btn = _pick_button(page, SIGN_IN_BUTTON_PATTERNS)
             if btn is not None:
                 btn.click(timeout=4000)
+                page.wait_for_timeout(max(wait_ms, 1500))
+                return True
+        except Exception:
+            pass
+        try:
+            import re as _re
+
+            link = page.get_by_role("link", name=_re.compile(r"sign in|log in", _re.IGNORECASE))
+            if link.count() > 0:
+                link.first.click(timeout=4000)
                 page.wait_for_timeout(max(wait_ms, 1500))
                 return True
         except Exception:
@@ -956,6 +1062,8 @@ def submit_with_playwright_workday(
                     "debug": {
                         "page_buttons": _list_visible_button_text(page),
                         "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
+                        "page_links": _list_visible_link_text(page),
+                        "surface_links": _list_visible_link_text(surface) if surface is not page else [],
                     },
                 }
 
@@ -979,6 +1087,8 @@ def submit_with_playwright_workday(
                     "debug": {
                         "page_buttons": _list_visible_button_text(page),
                         "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
+                        "page_links": _list_visible_link_text(page),
+                        "surface_links": _list_visible_link_text(surface) if surface is not page else [],
                     },
                 }
             try:
