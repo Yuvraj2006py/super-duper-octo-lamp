@@ -61,28 +61,29 @@ jobs:
 
       - name: Wait for Postgres
         run: |
-          for i in $(seq 1 30); do
-            if python -c "
-import os, sys
-url = os.environ.get('DATABASE_URL', '')
-if not url or '@' not in url or 'localhost' not in url:
-  print('DATABASE_URL missing or invalid.')
-  sys.exit(1)
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
-try:
-  e = create_engine(url)
-  with e.connect() as c: c.execute(text('SELECT 1'))
-  print('Postgres ready')
-  sys.exit(0)
-except OperationalError as err:
-  print('Waiting...', err)
-  sys.exit(2)
-"; then exit 0; fi
-            sleep 2
-          done
-          echo "Postgres did not become ready"
-          exit 1
+          python - <<'PY'
+          import os
+          import time
+          from sqlalchemy import create_engine, text
+          from sqlalchemy.exc import OperationalError
+
+          url = os.environ.get("DATABASE_URL", "")
+          if not url:
+              raise SystemExit("DATABASE_URL missing")
+
+          engine = create_engine(url)
+          for i in range(30):
+              try:
+                  with engine.connect() as c:
+                      c.execute(text("SELECT 1"))
+                  print("Postgres ready")
+                  raise SystemExit(0)
+              except OperationalError as err:
+                  print("Waiting...", err)
+                  time.sleep(2)
+
+          raise SystemExit("Postgres did not become ready")
+          PY
 
       - name: Lint syntax
         run: python -m compileall app scripts tests
