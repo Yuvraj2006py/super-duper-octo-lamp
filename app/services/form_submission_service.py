@@ -945,8 +945,56 @@ def submit_with_playwright_workday(
                     "response_url": page.url,
                     "steps": steps,
                 }
-            sign_in.click(timeout=5000)
+            # Workday often overlays a div that intercepts clicks (data-automation-id='click_filter').
+            clicked = False
+            last_click_error = None
+            for attempt in range(3):
+                try:
+                    sign_in.click(timeout=15000)
+                    clicked = True
+                    break
+                except Exception as exc:
+                    last_click_error = str(exc)
+                    try:
+                        # Prefer the intercepting overlay itself if present.
+                        overlay = page.locator(
+                            "div[role='button'][data-automation-id='click_filter'][aria-label*='Sign In'], "
+                            "div[role='button'][data-automation-id='click_filter'][aria-label*='Log In']"
+                        )
+                        if overlay.count() > 0 and overlay.first.is_visible():
+                            overlay.first.click(timeout=15000, force=True)
+                            clicked = True
+                            break
+                    except Exception as exc2:
+                        last_click_error = f"{last_click_error}; overlay_click_failed={exc2}"
+                    try:
+                        # Last resort: force-click the original target.
+                        sign_in.click(timeout=15000, force=True)
+                        clicked = True
+                        break
+                    except Exception as exc3:
+                        last_click_error = f"{last_click_error}; force_click_failed={exc3}"
+                page.wait_for_timeout(400)
+
+            if not clicked:
+                context.close()
+                browser.close()
+                return {
+                    "status": "failed",
+                    "reason": "sign_in_click_failed",
+                    "response_url": page.url,
+                    "steps": steps,
+                    "debug": {
+                        "page_buttons": _list_visible_button_text(page),
+                        "page_links": _list_visible_link_text(page),
+                        "click_error": last_click_error,
+                    },
+                }
             page.wait_for_timeout(max(wait_ms, 2000))
+            try:
+                page.wait_for_load_state("networkidle", timeout=timeout_ms)
+            except Exception:
+                pass
             _try_dismiss_cookie_banners(page)
 
         # Multi-step navigation.
@@ -1168,30 +1216,40 @@ def perform_submission(
             break
 
         inferred_platform = (platform or detect_platform(url)).strip().lower() or "generic"
-        if inferred_platform == "workday":
-            result = submit_with_playwright_workday(
-                url=url,
-                drafts=drafts or {},
-                user_profile=user_profile or {},
-                storage_state_path=storage_state_path,
-                timeout_ms=timeout_ms,
-                wait_ms=wait_ms,
-                headless=headless,
-                dry_run=dry_run,
-                allow_final_submit=allow_final_submit,
-                max_steps=max_steps,
-            )
-        else:
-            result = submit_with_playwright(
-                url=url,
-                payload=payload,
-                storage_state_path=storage_state_path,
-                timeout_ms=timeout_ms,
-                wait_ms=wait_ms,
-                headless=headless,
-                dry_run=dry_run,
-                allow_final_submit=allow_final_submit,
-            )
+        try:
+            if inferred_platform == "workday":
+                result = submit_with_playwright_workday(
+                    url=url,
+                    drafts=drafts or {},
+                    user_profile=user_profile or {},
+                    storage_state_path=storage_state_path,
+                    timeout_ms=timeout_ms,
+                    wait_ms=wait_ms,
+                    headless=headless,
+                    dry_run=dry_run,
+                    allow_final_submit=allow_final_submit,
+                    max_steps=max_steps,
+                )
+            else:
+                result = submit_with_playwright(
+                    url=url,
+                    payload=payload,
+                    storage_state_path=storage_state_path,
+                    timeout_ms=timeout_ms,
+                    wait_ms=wait_ms,
+                    headless=headless,
+                    dry_run=dry_run,
+                    allow_final_submit=allow_final_submit,
+                )
+        except Exception as exc:
+            # Ensure any platform/Playwright failure still returns a structured result so the caller can persist it.
+            result = {
+                "status": "failed",
+                "reason": f"exception:{type(exc).__name__}",
+                "error": str(exc),
+                "response_url": url,
+                "filled_count": 0,
+            }
         result["attempts"] = attempt
         last = result
 

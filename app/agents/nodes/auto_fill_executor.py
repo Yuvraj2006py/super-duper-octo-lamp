@@ -56,37 +56,51 @@ def make_node(db, actor_id: str) -> Callable[[JobPipelineState], JobPipelineStat
         )
 
         cfg = default_submission_config()
-        result = perform_submission(
-            url=job_url,
-            payload=payload,
-            platform=job_platform,
-            drafts=drafts,
-            user_profile=user.profile_json or {},
-            mode=str(cfg["mode"]),
-            retries=int(cfg["retries"]),
-            dry_run=bool(cfg["dry_run"]),
-            storage_state_path=cfg["storage_state_path"],
-            timeout_ms=int(cfg["timeout_ms"]),
-            wait_ms=int(cfg["wait_ms"]),
-            headless=bool(cfg["headless"]),
-            allow_final_submit=bool(cfg.get("allow_final_submit", False)),
-            max_steps=int(cfg.get("max_steps", 12)),
-        )
+        try:
+            result = perform_submission(
+                url=job_url,
+                payload=payload,
+                platform=job_platform,
+                drafts=drafts,
+                user_profile=user.profile_json or {},
+                mode=str(cfg["mode"]),
+                retries=int(cfg["retries"]),
+                dry_run=bool(cfg["dry_run"]),
+                storage_state_path=cfg["storage_state_path"],
+                timeout_ms=int(cfg["timeout_ms"]),
+                wait_ms=int(cfg["wait_ms"]),
+                headless=bool(cfg["headless"]),
+                allow_final_submit=bool(cfg.get("allow_final_submit", False)),
+                max_steps=int(cfg.get("max_steps", 12)),
+            )
+        except Exception as exc:
+            # Never let Playwright or platform logic crash the LangGraph run.
+            result = {
+                "status": "failed",
+                "reason": f"exception:{type(exc).__name__}",
+                "error": str(exc),
+                "response_url": job_url,
+                "filled_count": 0,
+                "attempts": 1,
+            }
 
-        crud.add_submission_packet(
-            db,
-            application_id=str(application.id),
-            attempt_no=int(result.get("attempts", 1)),
-            status=str(result.get("status") or "failed"),
-            payload={
-                "platform": job_platform,
-                "field_payload": payload,
-                "result": result,
-            },
-            response_url=str(result.get("response_url") or "") or None,
-            block_reason=str(result.get("reason") or "") or None,
-            submitted_at=now_utc() if str(result.get("status")) == "submitted" else None,
-        )
+        try:
+            crud.add_submission_packet(
+                db,
+                application_id=str(application.id),
+                attempt_no=int(result.get("attempts", 1)),
+                status=str(result.get("status") or "failed"),
+                payload={
+                    "platform": job_platform,
+                    "field_payload": payload,
+                    "result": result,
+                },
+                response_url=str(result.get("response_url") or "") or None,
+                block_reason=str(result.get("reason") or "") or None,
+                submitted_at=now_utc() if str(result.get("status")) == "submitted" else None,
+            )
+        except Exception as exc:
+            state.setdefault("errors", []).append(f"Failed to persist submission packet: {exc}")
 
         status = str(result.get("status") or "failed")
         if status == "submitted":
