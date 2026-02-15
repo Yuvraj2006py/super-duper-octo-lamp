@@ -3,7 +3,7 @@ from app.services.resume_pdf_parser import merge_profiles, parse_resume_text
 
 def test_parse_resume_text_extracts_sections():
     text = (
-        "Yuvraj Sharma (905) 299-9148 | yuvisha06@gmail.com | LinkedIn | GitHub "
+        "Yuvraj Sharma (000) 000-0000 | test@example.com | LinkedIn | GitHub "
         "EDUCATION University of Western Ontario | London, ON April 2028 (Expected) "
         "Honours Specialization in Computer Science ● Relevant Coursework: Data Structures, Databases "
         "TECHNICAL SKILLS Languages & Frameworks: Python (FastAPI, Pandas), SQL, JavaScript "
@@ -18,7 +18,7 @@ def test_parse_resume_text_extracts_sections():
     profile = parse_resume_text(text)
 
     assert profile["personal_info"]["name"] == "Yuvraj Sharma"
-    assert profile["personal_info"]["email"] == "yuvisha06@gmail.com"
+    assert profile["personal_info"]["email"] == "test@example.com"
     assert len(profile["education"]) >= 1
     assert len(profile["experience"]) >= 2
     assert len(profile["projects"]) >= 1

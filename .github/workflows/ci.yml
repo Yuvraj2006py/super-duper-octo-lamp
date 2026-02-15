@@ -13,7 +13,7 @@ jobs:
         env:
           POSTGRES_DB: job_assistant
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         ports:
           - 5432:5432
         options: >-
@@ -33,7 +33,7 @@ jobs:
 
     env:
       PYTHONPATH: .
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/job_assistant
+      DATABASE_URL: postgresql+psycopg://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/job_assistant
       REDIS_URL: redis://localhost:6379/0
       LOCAL_API_KEY: change-me
       SECRET_KEY: ci-secret

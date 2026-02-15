@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: job_assistant
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
@@ -26,7 +26,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/job_assistant
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/job_assistant
       REDIS_URL: redis://redis:6379/0
       OUTPUT_DIR: /output
       DATA_DIR: /workspace/data
@@ -52,7 +52,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/job_assistant
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/job_assistant
       REDIS_URL: redis://redis:6379/0
       OUTPUT_DIR: /output
       TEMPLATE_DIR: /workspace/app/templates
@@ -75,7 +75,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/job_assistant
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/job_assistant
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ./:/workspace
