@@ -73,6 +73,20 @@ def test_build_field_payload_maps_workday_login_and_skips_honeypot():
     assert items["website"]["value"] == ""
     assert items["website"]["source"] == "honeypot.skip"
 
+def test_build_field_payload_supports_dict_fields():
+    fields = [
+        {"field_key": "email", "label": "Email Address*", "required": True, "type": "text", "metadata": {"name": "email"}},
+        {"field_key": "password", "label": "Password*", "required": True, "type": "password", "metadata": {"name": "password"}},
+    ]
+    payload = submission.build_field_payload(
+        form_fields=fields,
+        drafts={},
+        user_profile={"personal_info": {"email": "student@example.com"}},
+    )
+    items = {item["field_key"]: item for item in payload}
+    assert items["email"]["value"] == "student@example.com"
+    assert items["password"]["runtime_value_env"] == "WORKDAY_PASSWORD"
+
 
 def test_build_field_payload_uses_drafts_when_meta_missing():
     fields = [_field("why", "Why are you interested in this internship?", required=True)]

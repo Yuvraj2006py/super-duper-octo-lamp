@@ -279,7 +279,7 @@ def _has_captcha(text: str) -> bool:
 
 
 def _submit_button_selector() -> str:
-    return "button[type='submit'], input[type='submit'], button, [role='button']"
+    return "button[type='submit'], input[type='submit'], button, [role='button'], a[role='button']"
 
 
 def _pick_submit_button(page):
@@ -330,7 +330,22 @@ def _pick_button(page, patterns: list[re.Pattern], selectors: list[str] | None =
             value_attr = (node.get_attribute("value") or "").strip()
         except Exception:
             value_attr = ""
-        blob = f"{text} {value_attr}".strip()
+        aria = ""
+        try:
+            aria = (node.get_attribute("aria-label") or "").strip()
+        except Exception:
+            aria = ""
+        title = ""
+        try:
+            title = (node.get_attribute("title") or "").strip()
+        except Exception:
+            title = ""
+        automation_id = ""
+        try:
+            automation_id = (node.get_attribute("data-automation-id") or "").strip()
+        except Exception:
+            automation_id = ""
+        blob = f"{text} {value_attr} {aria} {title} {automation_id}".strip()
         if not blob:
             continue
         for pattern in patterns:
@@ -378,7 +393,17 @@ def _list_visible_button_text(surface, *, limit: int = 30) -> list[str]:
             val = (node.get_attribute("value") or "").strip()
         except Exception:
             val = ""
-        blob = re.sub(r"\s+", " ", f"{text} {val}".strip())
+        aria = ""
+        try:
+            aria = (node.get_attribute("aria-label") or "").strip()
+        except Exception:
+            aria = ""
+        automation_id = ""
+        try:
+            automation_id = (node.get_attribute("data-automation-id") or "").strip()
+        except Exception:
+            automation_id = ""
+        blob = re.sub(r"\s+", " ", f"{text} {val} {aria} {automation_id}".strip())
         if blob and blob not in out:
             out.append(blob[:140])
     return out
@@ -408,7 +433,12 @@ def _list_visible_link_text(surface, *, limit: int = 30) -> list[str]:
             href = (node.get_attribute("href") or "").strip()
         except Exception:
             href = ""
-        blob = re.sub(r"\s+", " ", f"{text} {href}".strip())
+        aria = ""
+        try:
+            aria = (node.get_attribute("aria-label") or "").strip()
+        except Exception:
+            aria = ""
+        blob = re.sub(r"\s+", " ", f"{text} {aria} {href}".strip())
         if blob and blob not in out:
             out.append(blob[:180])
     return out
@@ -1044,11 +1074,21 @@ def submit_with_playwright_workday(
             submit_btn = _pick_button(
                 page,
                 WORKDAY_FINAL_SUBMIT_PATTERNS,
-                selectors=["button[data-automation-id='bottom-navigation-submit-button']", "button[data-automation-id*='submit']"],
+                selectors=[
+                    "[data-automation-id='bottom-navigation-submit-button']",
+                    "button[data-automation-id='bottom-navigation-submit-button']",
+                    "[data-automation-id*='submit']",
+                    "button[data-automation-id*='submit']",
+                ],
             ) or _pick_button(
                 surface,
                 WORKDAY_FINAL_SUBMIT_PATTERNS,
-                selectors=["button[data-automation-id='bottom-navigation-submit-button']", "button[data-automation-id*='submit']"],
+                selectors=[
+                    "[data-automation-id='bottom-navigation-submit-button']",
+                    "button[data-automation-id='bottom-navigation-submit-button']",
+                    "[data-automation-id*='submit']",
+                    "button[data-automation-id*='submit']",
+                ],
             )
             if submit_btn is not None:
                 if dry_run:
@@ -1099,32 +1139,45 @@ def submit_with_playwright_workday(
                     "steps": steps,
                 }
 
-            if len(fields) == 0:
-                context.close()
-                browser.close()
-                return {
-                    "status": "failed",
-                    "reason": "no_interactive_fields_detected",
-                    "response_url": page.url,
-                    "steps": steps,
-                    "debug": {
-                        "page_buttons": _list_visible_button_text(page),
-                        "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
-                        "page_links": _list_visible_link_text(page),
-                        "surface_links": _list_visible_link_text(surface) if surface is not page else [],
-                    },
-                }
-
             next_btn = _pick_button(
                 page,
                 NEXT_BUTTON_PATTERNS,
-                selectors=["button[data-automation-id='bottom-navigation-next-button']", "button[data-automation-id*='next']", "button[data-automation-id*='continue']"],
+                selectors=[
+                    "[data-automation-id='bottom-navigation-next-button']",
+                    "button[data-automation-id='bottom-navigation-next-button']",
+                    "[data-automation-id*='next']",
+                    "button[data-automation-id*='next']",
+                    "[data-automation-id*='continue']",
+                    "button[data-automation-id*='continue']",
+                ],
             ) or _pick_button(
                 surface,
                 NEXT_BUTTON_PATTERNS,
-                selectors=["button[data-automation-id='bottom-navigation-next-button']", "button[data-automation-id*='next']", "button[data-automation-id*='continue']"],
+                selectors=[
+                    "[data-automation-id='bottom-navigation-next-button']",
+                    "button[data-automation-id='bottom-navigation-next-button']",
+                    "[data-automation-id*='next']",
+                    "button[data-automation-id*='next']",
+                    "[data-automation-id*='continue']",
+                    "button[data-automation-id*='continue']",
+                ],
             )
             if next_btn is None:
+                if len(fields) == 0:
+                    context.close()
+                    browser.close()
+                    return {
+                        "status": "failed",
+                        "reason": "no_interactive_fields_detected",
+                        "response_url": page.url,
+                        "steps": steps,
+                        "debug": {
+                            "page_buttons": _list_visible_button_text(page),
+                            "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
+                            "page_links": _list_visible_link_text(page),
+                            "surface_links": _list_visible_link_text(surface) if surface is not page else [],
+                        },
+                    }
                 context.close()
                 browser.close()
                 return {
