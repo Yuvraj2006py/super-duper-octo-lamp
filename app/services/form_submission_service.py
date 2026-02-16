@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from app.core.config import get_settings
 from app.services.url_parser import detect_platform
@@ -922,7 +923,16 @@ def submit_with_playwright_workday(
         # Fall back: synthesize /apply URL (common on Workday hosted sites).
         try:
             cur = page.url or url
-            if "/apply" not in cur:
+            parsed = urlsplit(str(cur))
+            path_lower = (parsed.path or "").lower()
+            # Only synthesize /apply from likely job-detail routes, never from search/home pages.
+            can_synthesize = (
+                "/apply" not in path_lower
+                and "/search" not in path_lower
+                and "/candidate" not in path_lower
+                and "/job/" in path_lower
+            )
+            if can_synthesize:
                 base, q = (cur.split("?", 1) + [""])[:2]
                 base = base.rstrip("/")
                 apply_url = f"{base}/apply"
@@ -1028,7 +1038,10 @@ def submit_with_playwright_workday(
                             "url_after_apply": _safe_page_url(page),
                         }
                     )
-                    return True
+                    # Do not short-circuit on generic /search pages; keep trying targeted candidates.
+                    cur_after_apply = _safe_page_url(page).lower()
+                    if "/search" not in cur_after_apply:
+                        return True
                 recovery_attempts.append(
                     {
                         "candidate": candidate,
