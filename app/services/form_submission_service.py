@@ -340,12 +340,7 @@ def _pick_button(page, patterns: list[re.Pattern], selectors: list[str] | None =
             title = (node.get_attribute("title") or "").strip()
         except Exception:
             title = ""
-        automation_id = ""
-        try:
-            automation_id = (node.get_attribute("data-automation-id") or "").strip()
-        except Exception:
-            automation_id = ""
-        blob = f"{text} {value_attr} {aria} {title} {automation_id}".strip()
+        blob = f"{text} {value_attr} {aria} {title}".strip()
         if not blob:
             continue
         for pattern in patterns:
@@ -1070,6 +1065,24 @@ def submit_with_playwright_workday(
                     ],
                 }
             )
+
+            # Workday login pages can expose submit controls; treat that as login state, not final application submit.
+            if _has_login_wall_any(page):
+                context.close()
+                browser.close()
+                return {
+                    "status": "failed",
+                    "reason": "login_wall_still_present",
+                    "response_url": page.url,
+                    "steps": steps,
+                    "debug": {
+                        "page_buttons": _list_visible_button_text(page),
+                        "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
+                        "page_links": _list_visible_link_text(page),
+                        "surface_links": _list_visible_link_text(surface) if surface is not page else [],
+                        "workday_password_env_present": bool(os.environ.get("WORKDAY_PASSWORD")),
+                    },
+                }
 
             submit_btn = _pick_button(
                 page,
