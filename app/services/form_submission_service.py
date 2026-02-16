@@ -768,6 +768,7 @@ def submit_with_playwright_workday(
         raise FileNotFoundError(f"Storage state file not found: {storage_state_path}")
 
     steps: list[dict[str, Any]] = []
+    recovery_attempts: list[dict[str, Any]] = []
 
     def _has_login_wall_any(page) -> bool:
         def _has_pw(surface) -> bool:
@@ -875,6 +876,7 @@ def submit_with_playwright_workday(
             "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
             "page_links": _list_visible_link_text(page),
             "surface_links": _list_visible_link_text(surface) if surface is not page else [],
+            "recovery_attempts": recovery_attempts[-40:],
         }
 
     def _safe_page_url(page) -> str:
@@ -935,6 +937,10 @@ def submit_with_playwright_workday(
 
     def _recover_from_not_found(page) -> bool:
         candidates: list[str] = []
+        token_match = re.search(r"(R_[0-9]+)", url or "", flags=re.IGNORECASE)
+        job_token = token_match.group(1) if token_match else ""
+        tenant_root_match = re.match(r"^(https?://[^/]+/[^/]+)", str(url or "").strip())
+        tenant_root = tenant_root_match.group(1) if tenant_root_match else ""
 
         def _add(u: str | None) -> None:
             s = str(u or "").strip()
@@ -959,21 +965,85 @@ def submit_with_playwright_workday(
         _add(_strip_query(_strip_apply(url)))
         _add(_strip_apply(cur))
         _add(_strip_query(_strip_apply(cur)))
+        if tenant_root:
+            _add(f"{tenant_root}/search")
+            if job_token:
+                _add(f"{tenant_root}/search?q={job_token}")
 
         for candidate in candidates:
             try:
                 page.goto(candidate, timeout=timeout_ms, wait_until="domcontentloaded")
                 page.wait_for_timeout(max(wait_ms, 1200))
+                recovery_attempts.append(
+                    {
+                        "candidate": candidate,
+                        "stage": "goto",
+                        "url_after_goto": _safe_page_url(page),
+                        "not_found_after_goto": _looks_like_not_found(page),
+                    }
+                )
                 _try_dismiss_cookie_banners(page)
+                if job_token:
+                    try:
+                        job_link = page.locator(f"a[href*='{job_token}']")
+                        if job_link.count() > 0 and job_link.first.is_visible():
+                            job_link.first.click(timeout=5000)
+                            page.wait_for_timeout(max(wait_ms, 1200))
+                            recovery_attempts.append(
+                                {
+                                    "candidate": candidate,
+                                    "stage": "open_job_link",
+                                    "job_token": job_token,
+                                    "url_after_job_link": _safe_page_url(page),
+                                }
+                            )
+                    except Exception as exc:
+                        recovery_attempts.append(
+                            {
+                                "candidate": candidate,
+                                "stage": "open_job_link_error",
+                                "job_token": job_token,
+                                "error": str(exc),
+                            }
+                        )
                 _try_click_apply(page)
                 page.wait_for_timeout(max(wait_ms, 1200))
                 surface_probe, _, fields_probe = _extract_fields_best_surface(page)
                 if fields_probe:
+                    recovery_attempts.append(
+                        {
+                            "candidate": candidate,
+                            "stage": "success_fields_detected",
+                            "url_after_apply": _safe_page_url(page),
+                            "field_count": len(fields_probe),
+                        }
+                    )
                     return True
                 if not _looks_like_not_found(page) and not _looks_like_not_found(surface_probe):
                     # We at least escaped the 404 shell; caller can continue the loop.
+                    recovery_attempts.append(
+                        {
+                            "candidate": candidate,
+                            "stage": "escaped_not_found",
+                            "url_after_apply": _safe_page_url(page),
+                        }
+                    )
                     return True
-            except Exception:
+                recovery_attempts.append(
+                    {
+                        "candidate": candidate,
+                        "stage": "still_not_found",
+                        "url_after_apply": _safe_page_url(page),
+                    }
+                )
+            except Exception as exc:
+                recovery_attempts.append(
+                    {
+                        "candidate": candidate,
+                        "stage": "candidate_error",
+                        "error": str(exc),
+                    }
+                )
                 continue
         return False
 
