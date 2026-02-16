@@ -883,6 +883,15 @@ def submit_with_playwright_workday(
         except Exception:
             return ""
 
+    def _looks_like_not_found(surface) -> bool:
+        text = _text_excerpt(surface, limit=1200).lower()
+        return (
+            "page you are looking for doesn't exist" in text
+            or "page you are looking for doesnt exist" in text
+            or "the page you are looking for doesn't exist" in text
+            or "the page you are looking for doesnt exist" in text
+        )
+
     def _try_click_apply(page) -> None:
         for sel in [
             "a[data-automation-id='adventureButton']",
@@ -915,12 +924,58 @@ def submit_with_playwright_workday(
                 base, q = (cur.split("?", 1) + [""])[:2]
                 base = base.rstrip("/")
                 apply_url = f"{base}/apply"
-                if q:
-                    apply_url = f"{apply_url}?{q}"
                 page.goto(apply_url, wait_until="domcontentloaded", timeout=timeout_ms)
                 page.wait_for_timeout(max(wait_ms, 1500))
+                # If tenant expects query-based routing, try with original query as fallback.
+                if _looks_like_not_found(page) and q:
+                    page.goto(f"{apply_url}?{q}", wait_until="domcontentloaded", timeout=timeout_ms)
+                    page.wait_for_timeout(max(wait_ms, 1500))
         except Exception:
             pass
+
+    def _recover_from_not_found(page) -> bool:
+        candidates: list[str] = []
+
+        def _add(u: str | None) -> None:
+            s = str(u or "").strip()
+            if s and s not in candidates:
+                candidates.append(s)
+
+        def _strip_query(u: str | None) -> str:
+            return str((u or "").split("?", 1)[0]).strip()
+
+        def _strip_apply(u: str | None) -> str:
+            s = str(u or "").strip()
+            if "/apply" in s:
+                return s.split("/apply", 1)[0].rstrip("/")
+            return s
+
+        cur = _safe_page_url(page)
+        _add(url)
+        _add(_strip_query(url))
+        _add(cur)
+        _add(_strip_query(cur))
+        _add(_strip_apply(url))
+        _add(_strip_query(_strip_apply(url)))
+        _add(_strip_apply(cur))
+        _add(_strip_query(_strip_apply(cur)))
+
+        for candidate in candidates:
+            try:
+                page.goto(candidate, timeout=timeout_ms, wait_until="domcontentloaded")
+                page.wait_for_timeout(max(wait_ms, 1200))
+                _try_dismiss_cookie_banners(page)
+                _try_click_apply(page)
+                page.wait_for_timeout(max(wait_ms, 1200))
+                surface_probe, _, fields_probe = _extract_fields_best_surface(page)
+                if fields_probe:
+                    return True
+                if not _looks_like_not_found(page) and not _looks_like_not_found(surface_probe):
+                    # We at least escaped the 404 shell; caller can continue the loop.
+                    return True
+            except Exception:
+                continue
+        return False
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
@@ -1103,6 +1158,12 @@ def submit_with_playwright_workday(
                 }
 
             surface, surface_label, fields = _extract_fields_best_surface(page)
+
+            # TD/Workday can redirect to a logged-in 404 shell after sign-in; recover by reopening job/apply.
+            if len(fields) == 0 and (_looks_like_not_found(page) or _looks_like_not_found(surface)):
+                if _recover_from_not_found(page):
+                    continue
+
             step_payload = build_field_payload(form_fields=fields, drafts=drafts, user_profile=user_profile)
             filled = 0
             for item in step_payload:
