@@ -851,6 +851,11 @@ def submit_with_playwright_workday(
             return ""
 
     def _page_debug_snapshot(page, surface) -> dict[str, Any]:
+        page_title = ""
+        try:
+            page_title = (page.title() or "")[:180]
+        except Exception:
+            page_title = ""
         frame_urls: list[str] = []
         for fr in page.frames:
             if fr == page.main_frame:
@@ -861,7 +866,7 @@ def submit_with_playwright_workday(
             except Exception:
                 continue
         return {
-            "page_title": (page.title() or "")[:180] if hasattr(page, "title") else "",
+            "page_title": page_title,
             "page_text_excerpt": _text_excerpt(page),
             "surface_text_excerpt": _text_excerpt(surface) if surface is not page else "",
             "frame_urls": frame_urls,
@@ -871,6 +876,12 @@ def submit_with_playwright_workday(
             "page_links": _list_visible_link_text(page),
             "surface_links": _list_visible_link_text(surface) if surface is not page else [],
         }
+
+    def _safe_page_url(page) -> str:
+        try:
+            return str(page.url or "")
+        except Exception:
+            return ""
 
     def _try_click_apply(page) -> None:
         for sel in [
@@ -1041,18 +1052,17 @@ def submit_with_playwright_workday(
                 page.wait_for_timeout(400)
 
             if not clicked:
+                response_url = _safe_page_url(page)
+                debug_snapshot = _page_debug_snapshot(page, page)
+                debug_snapshot["click_error"] = last_click_error
                 context.close()
                 browser.close()
                 return {
                     "status": "failed",
                     "reason": "sign_in_click_failed",
-                    "response_url": page.url,
+                    "response_url": response_url,
                     "steps": steps,
-                    "debug": {
-                        "page_buttons": _list_visible_button_text(page),
-                        "page_links": _list_visible_link_text(page),
-                        "click_error": last_click_error,
-                    },
+                    "debug": debug_snapshot,
                 }
             page.wait_for_timeout(max(wait_ms, 2000))
             try:
@@ -1120,18 +1130,19 @@ def submit_with_playwright_workday(
 
             # Workday login pages can expose submit controls; treat that as login state, not final application submit.
             if _has_login_wall_any(page):
-                context.close()
-                browser.close()
+                response_url = _safe_page_url(page)
                 debug_snapshot = _page_debug_snapshot(page, surface)
                 debug_snapshot["workday_password_env_present"] = bool(
                     os.environ.get("WORKDAY_PASSWORD")
                     or os.environ.get("password")
                     or os.environ.get("PASSWORD")
                 )
+                context.close()
+                browser.close()
                 return {
                     "status": "failed",
                     "reason": "login_wall_still_present",
-                    "response_url": page.url,
+                    "response_url": response_url,
                     "steps": steps,
                     "debug": debug_snapshot,
                 }
@@ -1225,23 +1236,25 @@ def submit_with_playwright_workday(
             )
             if next_btn is None:
                 if len(fields) == 0:
+                    response_url = _safe_page_url(page)
+                    debug_snapshot = _page_debug_snapshot(page, surface)
                     context.close()
                     browser.close()
-                    debug_snapshot = _page_debug_snapshot(page, surface)
                     return {
                         "status": "failed",
                         "reason": "no_interactive_fields_detected",
-                        "response_url": page.url,
+                        "response_url": response_url,
                         "steps": steps,
                         "debug": debug_snapshot,
                     }
+                response_url = _safe_page_url(page)
+                debug_snapshot = _page_debug_snapshot(page, surface)
                 context.close()
                 browser.close()
-                debug_snapshot = _page_debug_snapshot(page, surface)
                 return {
                     "status": "failed",
                     "reason": "next_button_not_found",
-                    "response_url": page.url,
+                    "response_url": response_url,
                     "steps": steps,
                     "debug": debug_snapshot,
                 }
