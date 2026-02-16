@@ -210,6 +210,7 @@ def build_field_payload(
                     "required": required,
                     "value": "<redacted>",
                     "runtime_value_env": "WORKDAY_PASSWORD",
+                    "runtime_value_env_fallbacks": ["password", "PASSWORD"],
                     "source": "secret.env.WORKDAY_PASSWORD",
                     "metadata": {**metadata, "sensitive": True},
                 }
@@ -576,9 +577,17 @@ def _fill_field(page, item: dict[str, Any]) -> bool:
     metadata = item.get("metadata") or {}
     value = str(item.get("value") or "")
     runtime_env = str(item.get("runtime_value_env") or "").strip()
+    runtime_env_fallbacks = item.get("runtime_value_env_fallbacks") or []
+    if not isinstance(runtime_env_fallbacks, list):
+        runtime_env_fallbacks = []
     if runtime_env:
-        runtime_value = os.environ.get(runtime_env, "")
-        value = str(runtime_value or "")
+        for env_name in [runtime_env, *[str(x).strip() for x in runtime_env_fallbacks if str(x).strip()]]:
+            runtime_value = os.environ.get(env_name, "")
+            if str(runtime_value or "").strip():
+                value = str(runtime_value)
+                break
+        else:
+            value = ""
     if not value and not item.get("required"):
         return True
 
@@ -1080,7 +1089,11 @@ def submit_with_playwright_workday(
                         "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
                         "page_links": _list_visible_link_text(page),
                         "surface_links": _list_visible_link_text(surface) if surface is not page else [],
-                        "workday_password_env_present": bool(os.environ.get("WORKDAY_PASSWORD")),
+                        "workday_password_env_present": bool(
+                            os.environ.get("WORKDAY_PASSWORD")
+                            or os.environ.get("password")
+                            or os.environ.get("PASSWORD")
+                        ),
                     },
                 }
 

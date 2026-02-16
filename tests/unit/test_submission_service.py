@@ -67,6 +67,7 @@ def test_build_field_payload_maps_workday_login_and_skips_honeypot():
 
     assert items["password"]["value"] == "<redacted>"
     assert items["password"]["runtime_value_env"] == "WORKDAY_PASSWORD"
+    assert items["password"]["runtime_value_env_fallbacks"] == ["password", "PASSWORD"]
     assert items["password"]["source"] == "secret.env.WORKDAY_PASSWORD"
     assert items["password"]["metadata"]["sensitive"] is True
 
