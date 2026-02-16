@@ -842,6 +842,36 @@ def submit_with_playwright_workday(
                 best_fields = frame_fields
         return best_surface, best_label, best_fields
 
+    def _text_excerpt(surface, *, limit: int = 500) -> str:
+        try:
+            text = surface.evaluate("() => (document.body && document.body.innerText) ? document.body.innerText : ''")
+            cleaned = re.sub(r"\s+", " ", str(text or "")).strip()
+            return cleaned[:limit]
+        except Exception:
+            return ""
+
+    def _page_debug_snapshot(page, surface) -> dict[str, Any]:
+        frame_urls: list[str] = []
+        for fr in page.frames:
+            if fr == page.main_frame:
+                continue
+            try:
+                if fr.url:
+                    frame_urls.append(str(fr.url)[:220])
+            except Exception:
+                continue
+        return {
+            "page_title": (page.title() or "")[:180] if hasattr(page, "title") else "",
+            "page_text_excerpt": _text_excerpt(page),
+            "surface_text_excerpt": _text_excerpt(surface) if surface is not page else "",
+            "frame_urls": frame_urls,
+            "frame_count": len(frame_urls),
+            "page_buttons": _list_visible_button_text(page),
+            "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
+            "page_links": _list_visible_link_text(page),
+            "surface_links": _list_visible_link_text(surface) if surface is not page else [],
+        }
+
     def _try_click_apply(page) -> None:
         for sel in [
             "a[data-automation-id='adventureButton']",
@@ -1030,6 +1060,19 @@ def submit_with_playwright_workday(
             except Exception:
                 pass
             _try_dismiss_cookie_banners(page)
+            # Workday can render next step lazily after sign-in; wait for controls to appear.
+            for _ in range(4):
+                if _has_login_wall_any(page):
+                    break
+                surface_probe, _, fields_probe = _extract_fields_best_surface(page)
+                if fields_probe:
+                    break
+                try:
+                    page.wait_for_load_state("domcontentloaded", timeout=4000)
+                except Exception:
+                    pass
+                _try_dismiss_cookie_banners(page)
+                page.wait_for_timeout(max(wait_ms, 1000))
 
         # Multi-step navigation.
         for idx in range(max_steps):
@@ -1079,22 +1122,18 @@ def submit_with_playwright_workday(
             if _has_login_wall_any(page):
                 context.close()
                 browser.close()
+                debug_snapshot = _page_debug_snapshot(page, surface)
+                debug_snapshot["workday_password_env_present"] = bool(
+                    os.environ.get("WORKDAY_PASSWORD")
+                    or os.environ.get("password")
+                    or os.environ.get("PASSWORD")
+                )
                 return {
                     "status": "failed",
                     "reason": "login_wall_still_present",
                     "response_url": page.url,
                     "steps": steps,
-                    "debug": {
-                        "page_buttons": _list_visible_button_text(page),
-                        "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
-                        "page_links": _list_visible_link_text(page),
-                        "surface_links": _list_visible_link_text(surface) if surface is not page else [],
-                        "workday_password_env_present": bool(
-                            os.environ.get("WORKDAY_PASSWORD")
-                            or os.environ.get("password")
-                            or os.environ.get("PASSWORD")
-                        ),
-                    },
+                    "debug": debug_snapshot,
                 }
 
             submit_btn = _pick_button(
@@ -1188,31 +1227,23 @@ def submit_with_playwright_workday(
                 if len(fields) == 0:
                     context.close()
                     browser.close()
+                    debug_snapshot = _page_debug_snapshot(page, surface)
                     return {
                         "status": "failed",
                         "reason": "no_interactive_fields_detected",
                         "response_url": page.url,
                         "steps": steps,
-                        "debug": {
-                            "page_buttons": _list_visible_button_text(page),
-                            "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
-                            "page_links": _list_visible_link_text(page),
-                            "surface_links": _list_visible_link_text(surface) if surface is not page else [],
-                        },
+                        "debug": debug_snapshot,
                     }
                 context.close()
                 browser.close()
+                debug_snapshot = _page_debug_snapshot(page, surface)
                 return {
                     "status": "failed",
                     "reason": "next_button_not_found",
                     "response_url": page.url,
                     "steps": steps,
-                    "debug": {
-                        "page_buttons": _list_visible_button_text(page),
-                        "surface_buttons": _list_visible_button_text(surface) if surface is not page else [],
-                        "page_links": _list_visible_link_text(page),
-                        "surface_links": _list_visible_link_text(surface) if surface is not page else [],
-                    },
+                    "debug": debug_snapshot,
                 }
             try:
                 next_btn.click(timeout=5000)
