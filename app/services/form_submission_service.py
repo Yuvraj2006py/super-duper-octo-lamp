@@ -1090,8 +1090,6 @@ def submit_with_playwright_workday(
                 selectors=[
                     "[data-automation-id='bottom-navigation-submit-button']",
                     "button[data-automation-id='bottom-navigation-submit-button']",
-                    "[data-automation-id*='submit']",
-                    "button[data-automation-id*='submit']",
                 ],
             ) or _pick_button(
                 surface,
@@ -1099,8 +1097,6 @@ def submit_with_playwright_workday(
                 selectors=[
                     "[data-automation-id='bottom-navigation-submit-button']",
                     "button[data-automation-id='bottom-navigation-submit-button']",
-                    "[data-automation-id*='submit']",
-                    "button[data-automation-id*='submit']",
                 ],
             )
             if submit_btn is not None:
